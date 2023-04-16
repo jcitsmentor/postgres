@@ -64,6 +64,7 @@ ExecScanFetch(ScanState *node,
 
 			if (!(*recheckMtd) (node, slot))
 				ExecClearTuple(slot);	/* would not be returned by scan */
+
 			return slot;
 		}
 		else if (epqstate->relsubs_done[scanrelid - 1])
@@ -99,6 +100,7 @@ ExecScanFetch(ScanState *node,
 			if (!(*recheckMtd) (node, slot))
 				return ExecClearTuple(slot);	/* would not be returned by
 												 * scan */
+
 			return slot;
 		}
 		else if (epqstate->relsubs_rowmark[scanrelid - 1] != NULL)
@@ -123,6 +125,7 @@ ExecScanFetch(ScanState *node,
 			if (!(*recheckMtd) (node, slot))
 				return ExecClearTuple(slot);	/* would not be returned by
 												 * scan */
+
 			return slot;
 		}
 	}

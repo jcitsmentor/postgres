@@ -364,9 +364,15 @@ printtup_prepare_info(DR_printtup *myState, TupleDesc typeinfo, int numAttrs)
 			fmgr_info(thisState->typsend, &thisState->finfo);
 		}
 		else
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("unsupported format code: %d", format)));
+		{
+			getTypeOutputInfo(attr->atttypid,
+							  &thisState->typoutput,
+							  &thisState->typisvarlena);
+			fmgr_info(thisState->typoutput, &thisState->finfo);
+		}
+//			ereport(PANIC,
+//					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+//					 errmsg("2 unsupported format code: %d", format)));
 	}
 }
 

@@ -177,7 +177,7 @@ SendFunctionResult(Datum retval, bool isnull, Oid rettype, int16 format)
 		else
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("unsupported format code: %d", format)));
+					 errmsg("1 unsupported format code: %d", format)));
 	}
 
 	if (!newstyle)

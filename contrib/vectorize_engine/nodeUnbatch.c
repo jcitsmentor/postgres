@@ -72,8 +72,10 @@ BeginUnbatch(CustomScanState *node, EState *estate, int eflags)
 
 	/* Convert Vtype in tupdesc to Ntype in unbatch Node */
 	{
-		node->ss.ps.ps_ResultTupleSlot->tts_tupleDescriptor = CreateTupleDescCopy(outerPlanState(vcs)->ps_ResultTupleSlot->tts_tupleDescriptor);
+		node->ss.ps.ps_ResultTupleSlot->tts_tupleDescriptor =
+				CreateTupleDescCopy(outerPlanState(vcs)->ps_ResultTupleSlot->tts_tupleDescriptor);
 		tupdesc = node->ss.ps.ps_ResultTupleSlot->tts_tupleDescriptor;
+		node->ss.ps.ps_ResultTupleDesc = tupdesc;
 
 		for (int i = 0; i < tupdesc->natts; i++)
 		{
@@ -88,10 +90,10 @@ BeginUnbatch(CustomScanState *node, EState *estate, int eflags)
 															tupdesc, &TTSOpsVirtual);
 	}
 
-	vcs->ps_ResultVTupleSlot->tts_tupleDescriptor = CreateTupleDescCopy(outerPlanState(vcs)->ps_ResultTupleSlot->tts_tupleDescriptor);
 	vcs->ps_ResultVTupleSlot = ExecInitExtraTupleSlot(estate,
-								  vcs->ps_ResultVTupleSlot->tts_tupleDescriptor,
-								  &TTSOpsVector);
+						  outerPlanState(vcs)->ps_ResultTupleSlot->tts_tupleDescriptor,
+						  &TTSOpsVector);
+
 }
 
 static TupleTableSlot*

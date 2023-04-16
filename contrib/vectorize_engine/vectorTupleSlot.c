@@ -37,7 +37,7 @@ Vslot_deform_tuple(TupleTableSlot *slot, int natts)
 	HeapTuple	tuple;
 	HeapTupleHeader tup;
 	bool		hasnulls;
-	Form_pg_attribute *att = tupleDesc->attrs;
+	FormData_pg_attribute *att = tupleDesc->attrs;
 	int			attnum;
 	char	   *tp;				/* ptr to tuple data */
 	long		off;			/* offset in tuple data */
@@ -66,7 +66,7 @@ Vslot_deform_tuple(TupleTableSlot *slot, int natts)
 
 		for (; attnum < natts; attnum++)
 		{
-			Form_pg_attribute thisatt = att[attnum];
+			Form_pg_attribute thisatt = &att[attnum];
 			column = (vtype *)slot->tts_values[attnum];
 
 			if (hasnulls && att_isnull(attnum, bp))

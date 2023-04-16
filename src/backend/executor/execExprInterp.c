@@ -2018,11 +2018,11 @@ CheckVarSlotCompatibility(TupleTableSlot *slot, int attnum, Oid vartype)
 							attnum, format_type_be(slot_tupdesc->tdtypeid))));
 
 		if (vartype != attr->atttypid)
-			ereport(ERROR,
+			ereport(WARNING,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("attribute %d of type %s has wrong type",
 							attnum, format_type_be(slot_tupdesc->tdtypeid)),
-					 errdetail("Table has type %s, but query expects %s.",
+					 errdetail("1 Table has type %s, but query expects %s.",
 							   format_type_be(attr->atttypid),
 							   format_type_be(vartype))));
 	}
@@ -3095,7 +3095,7 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("attribute %d has wrong type", fieldnum),
-					 errdetail("Table has type %s, but query expects %s.",
+					 errdetail("2 Table has type %s, but query expects %s.",
 							   format_type_be(attr->atttypid),
 							   format_type_be(op->d.fieldselect.resulttype))));
 
@@ -3141,7 +3141,7 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("attribute %d has wrong type", fieldnum),
-					 errdetail("Table has type %s, but query expects %s.",
+					 errdetail("3 Table has type %s, but query expects %s.",
 							   format_type_be(attr->atttypid),
 							   format_type_be(op->d.fieldselect.resulttype))));
 

@@ -67,7 +67,7 @@ ExecScanFetch(VectorScanState *vss,
 
 			if (!(*recheckMtd) (vss, slot))
 				ExecClearTuple(slot);	/* would not be returned by scan */
-				return slot;
+			return slot;
 		}
 		else if (epqstate->relsubs_done[scanrelid - 1])
 		{
@@ -100,9 +100,9 @@ ExecScanFetch(VectorScanState *vss,
 
 			/* Check if it meets the access-method conditions */
 			if (!(*recheckMtd) (vss, slot))
-				return ExecClearTuple(slot);	/* would not be returned by
-												 * scan */
-				return slot;
+				return ExecClearTuple(slot);	/* would not be returned by scan */
+
+			return slot;
 		}
 		else if (epqstate->relsubs_rowmark[scanrelid - 1] != NULL)
 		{
@@ -124,9 +124,9 @@ ExecScanFetch(VectorScanState *vss,
 
 			/* Check if it meets the access-method conditions */
 			if (!(*recheckMtd) (vss, slot))
-				return ExecClearTuple(slot);	/* would not be returned by
-												 * scan */
-				return slot;
+				return ExecClearTuple(slot);	/* would not be returned by scan */
+
+			return slot;
 		}
 	}
 

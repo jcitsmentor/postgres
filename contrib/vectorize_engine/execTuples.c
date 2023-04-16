@@ -97,7 +97,6 @@
 #include "vectorTupleSlot.h"
 
 /* static vectorized functions */
-static void VExecAssignResultType(PlanState *planstate, TupleDesc tupDesc);
 
 /*
  * TupleTableSlotOps implementation for VectorTupleTableSlot.
@@ -109,6 +108,8 @@ tts_vector_init(TupleTableSlot *slot)
 {
 	VectorTupleSlot		*vslot;
 
+	slot->tts_flags |= TTS_FLAG_EMPTY;
+
 	/* vectorized fields */
 	vslot = (VectorTupleSlot*)slot;
 	vslot->dim = 0;
@@ -117,6 +118,8 @@ tts_vector_init(TupleTableSlot *slot)
 	memset(vslot->tts_tuples, 0, sizeof(vslot->tts_tuples));
 	/* all tuples should be skipped in initialization */
 	memset(vslot->skip, true, sizeof(vslot->skip));
+
+	InitializeVectorSlotColumn(vslot);
 }
 
 static void
@@ -161,7 +164,7 @@ tts_vector_copyslot(TupleTableSlot *dstslot, TupleTableSlot *srcslot)
 }
 
 const TupleTableSlotOps TTSOpsVector = {
-	.base_slot_size = sizeof(VirtualTupleTableSlot),
+	.base_slot_size = sizeof(VectorTupleSlot),
 	.init = tts_vector_init,
 	.release = tts_vector_release,
 	.clear = tts_vector_clear,

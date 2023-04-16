@@ -59,7 +59,6 @@ static TupleTableSlot *VExecSeqScan(VectorScanState *vss);
 static void VExecEndSeqScan(VectorScanState *vss);
 static void VExecReScanSeqScan(VectorScanState *vss);
 
-static void VInitScanRelation(SeqScanState *node, EState *estate, int eflags);
 static TupleTableSlot *VSeqNext(VectorScanState *vss);
 static bool VSeqRecheck(VectorScanState *node, TupleTableSlot *slot);
 
@@ -285,7 +284,7 @@ VSeqNext(VectorScanState *vss)
 		
 		/* deform the vector slot now */
 		Vslot_getallattrs(slot);
-		ExecStoreVirtualTuple(slot);
+		//ExecStoreVirtualTuple(slot);
 	}
 
 	return slot;
@@ -319,55 +318,6 @@ VExecSeqScan(VectorScanState *node)
 	return VExecScan(node,
 					 (VExecScanAccessMtd) VSeqNext,
 					 (VExecScanRecheckMtd) VSeqRecheck);
-}
-
-/* ----------------------------------------------------------------
- *		InitScanRelation
- *
- *		Set up to access the scan relation.
- * ----------------------------------------------------------------
- */
-static void
-VInitScanRelation(SeqScanState *node, EState *estate, int eflags)
-{
-	Relation	currentRelation;
-	TupleDesc	vdesc;
-	TupleTableSlot *slot;
-	int 		i;
-
-	/*
-	 * get the relation object id from the relid'th entry in the range table,
-	 * open that relation and acquire appropriate lock on it.
-	 */
-	currentRelation = ExecOpenScanRelation(estate,
-								   ((SeqScan *) node->ss.ps.plan)->scanrelid,
-										   eflags);
-
-	node->ss.ss_currentRelation = currentRelation;
-
-	/* 
-	 * since we will change the attr type of tuple desc to vector
-	 * type. we need to copy it to avoid dirty the relcache
-	 */
-	vdesc = CreateTupleDescCopyConstr(RelationGetDescr(currentRelation));
-
-	/* change the attr type of tuple desc to vector type */
-	for (i = 0; i < vdesc->natts; i++)
-	{
-		Form_pg_attribute	attr = &vdesc->attrs[i];
-		Oid					vtypid = GetVtype(attr->atttypid);
-		if (vtypid != InvalidOid)
-			attr->atttypid = vtypid;
-		else
-			elog(ERROR, "cannot find vectorized type for type %d",
-					attr->atttypid);
-	}
-
-	/* and report the scan tuple slot's rowtype */
-	ExecAssignScanType(&node->ss, vdesc);
-
-	slot = node->ss.ss_ScanTupleSlot;
-	InitializeVectorSlotColumn((VectorTupleSlot *)slot);
 }
 
 /* ----------------------------------------------------------------
@@ -437,15 +387,13 @@ VExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
 static void
 VExecEndSeqScan(VectorScanState *vss)
 {
-	Relation	relation;
 	HeapScanDesc scanDesc;
 	SeqScanState *node = vss->seqstate;
 
 	/*
 	 * get information from node
 	 */
-	relation = node->ss.ss_currentRelation;
-	scanDesc = node->ss.ss_currentScanDesc;
+	scanDesc = (HeapScanDesc) node->ss.ss_currentScanDesc;
 
 	/*
 	 * Free the exprcontext
