@@ -257,6 +257,18 @@ typedef struct AggStatePerGroupData
 	 */
 }			AggStatePerGroupData;
 
+typedef struct AGGStatePerGroupVectorData
+{
+	int64		size;
+	AggStatePerGroupData **perGroupVector;
+} AGGStatePerGroupVectorData;
+
+typedef struct AGGStatePerGroupSingleData
+{
+	int64		size;
+	AggStatePerGroupData *perGroup;
+} AGGStatePerGroupSingleData;
+
 /*
  * AggStatePerPhaseData - per-grouping-set-phase state
  *

@@ -56,8 +56,7 @@ typedef struct LastAttnumInfo
 } LastAttnumInfo;
 
 static void ExecReadyExpr(ExprState *state);
-static void ExecInitExprRec(Expr *node, ExprState *state,
-							Datum *resv, bool *resnull);
+
 static void ExecInitFunc(ExprEvalStep *scratch, Expr *node, List *args,
 						 Oid funcid, Oid inputcollid,
 						 ExprState *state);
@@ -645,7 +644,7 @@ ExecCheck(ExprState *state, ExprContext *econtext)
 }
 
 /*
- * Prepare a compiled expression for execution.  This has to be called for
+ * Prepare a compiled expression for execution.  This has to be    for
  * every ExprState before it can be executed.
  *
  * NB: While this currently only calls ExecReadyInterpretedExpr(),
@@ -670,7 +669,7 @@ ExecReadyExpr(ExprState *state)
  * state - ExprState to whose ->steps to append the necessary operations
  * resv / resnull - where to store the result of the node into
  */
-static void
+void
 ExecInitExprRec(Expr *node, ExprState *state,
 				Datum *resv, bool *resnull)
 {

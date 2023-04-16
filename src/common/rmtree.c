@@ -26,6 +26,8 @@
 #include "common/logging.h"
 #endif
 
+#undef bool
+typedef char bool;
 
 /*
  *	rmtree

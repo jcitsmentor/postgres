@@ -343,6 +343,7 @@ typedef struct ExprEvalStep
 		{
 			bool	   *anynull;	/* track if any input was NULL */
 			int			jumpdone;	/* jump here if result determined */
+			Datum 		vvalue;
 		}			boolexpr;
 
 		/* for EEOP_QUAL */
@@ -777,5 +778,8 @@ extern void ExecEvalAggOrderedTransDatum(ExprState *state, ExprEvalStep *op,
 										 ExprContext *econtext);
 extern void ExecEvalAggOrderedTransTuple(ExprState *state, ExprEvalStep *op,
 										 ExprContext *econtext);
+
+extern void ExecInitExprRec(Expr *node, ExprState *state,
+							Datum *resv, bool *resnull);
 
 #endif							/* EXEC_EXPR_H */

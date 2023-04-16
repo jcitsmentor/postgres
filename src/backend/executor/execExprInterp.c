@@ -61,6 +61,7 @@
 #include "commands/sequence.h"
 #include "executor/execExpr.h"
 #include "executor/nodeSubplan.h"
+#include "executor/vtype.h"
 #include "funcapi.h"
 #include "utils/memutils.h"
 #include "miscadmin.h"
@@ -137,6 +138,7 @@ static ExprEvalOpLookup reverse_dispatch_table[EEOP_LAST];
 		EEO_DISPATCH(); \
 	} while (0)
 
+#define BATCHSIZE 1024
 
 static Datum ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull);
 static void ExecInitInterpreter(void);
@@ -695,48 +697,108 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			 */
 
 			/* FALL THROUGH */
+
+			if (state->is_vector)
+			{
+				op->d.boolexpr.vvalue = *op->resvalue;
+			}
 		}
 
 		EEO_CASE(EEOP_BOOL_AND_STEP)
 		{
-			if (*op->resnull)
+			if (!state->is_vector)
 			{
-				*op->d.boolexpr.anynull = true;
+				if (*op->resnull)
+				{
+					*op->d.boolexpr.anynull = true;
+				}
+				else if (!DatumGetBool(*op->resvalue))
+				{
+					/* result is already set to FALSE, need not change it */
+					/* bail out early */
+					EEO_JUMP(op->d.boolexpr.jumpdone);
+				}
 			}
-			else if (!DatumGetBool(*op->resvalue))
+			else
 			{
-				/* result is already set to FALSE, need not change it */
-				/* bail out early */
-				EEO_JUMP(op->d.boolexpr.jumpdone);
+				if (*op->resnull)
+				{
+					*op->d.boolexpr.anynull = true;
+				}
+				else
+				{
+					vbool	*expr_val_bools;
+					vbool	*catched_val_bools;
+					bool	all_false = true;
+
+					expr_val_bools = (vbool*) DatumGetPointer(*op->resvalue);
+					catched_val_bools = (vbool*) DatumGetPointer(op->d.boolexpr.vvalue);
+					for (int i = 0; i < BATCHSIZE; ++i)
+					{
+						catched_val_bools->values[i] = DatumGetBool(catched_val_bools->values[i]) &&
+								DatumGetBool(expr_val_bools->values[i]);
+						if (DatumGetBool(catched_val_bools->values[i]))
+							all_false = false;
+					}
+					if (all_false)
+					{
+						*op->resvalue = PointerGetDatum(catched_val_bools);
+						EEO_JUMP(op->d.boolexpr.jumpdone);
+					}
+				}
 			}
+
 
 			EEO_NEXT();
 		}
 
 		EEO_CASE(EEOP_BOOL_AND_STEP_LAST)
 		{
-			if (*op->resnull)
+			if (!state->is_vector)
 			{
-				/* result is already set to NULL, need not change it */
-			}
-			else if (!DatumGetBool(*op->resvalue))
-			{
-				/* result is already set to FALSE, need not change it */
+				if (*op->resnull)
+				{
+					/* result is already set to NULL, need not change it */
+				}
+				else if (!DatumGetBool(*op->resvalue))
+				{
+					/* result is already set to FALSE, need not change it */
 
-				/*
-				 * No point jumping early to jumpdone - would be same target
-				 * (as this is the last argument to the AND expression),
-				 * except more expensive.
-				 */
-			}
-			else if (*op->d.boolexpr.anynull)
-			{
-				*op->resvalue = (Datum) 0;
-				*op->resnull = true;
+					/*
+					 * No point jumping early to jumpdone - would be same target
+					 * (as this is the last argument to the AND expression),
+					 * except more expensive.
+					 */
+				}
+				else if (*op->d.boolexpr.anynull)
+				{
+					*op->resvalue = (Datum) 0;
+					*op->resnull = true;
+				}
+				else
+				{
+					/* result is already set to TRUE, need not change it */
+				}
 			}
 			else
 			{
-				/* result is already set to TRUE, need not change it */
+				if (*op->resnull)
+				{
+					/* result is already set to NULL, need not change it */
+				}
+				else
+				{
+					vbool	*expr_val_bools;
+					vbool	*catched_val_bools;
+
+					expr_val_bools = (vbool*) DatumGetPointer(*op->resvalue);
+					catched_val_bools = (vbool*) DatumGetPointer(op->d.boolexpr.vvalue);
+					for (int i = 0; i < BATCHSIZE; ++i)
+					{
+						expr_val_bools->values[i] = DatumGetBool(catched_val_bools->values[i]) &&
+								DatumGetBool(expr_val_bools->values[i]);
+					}
+				}
 			}
 
 			EEO_NEXT();
@@ -1571,22 +1633,50 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 			aggstate = op->d.agg_init_trans.aggstate;
 			pergroup = &aggstate->all_pergroups
-				[op->d.agg_init_trans.setoff]
-				[op->d.agg_init_trans.transno];
+					[op->d.agg_init_trans.setoff]
+					[op->d.agg_init_trans.transno];
 
-			/* If transValue has not yet been initialized, do so now. */
-			if (pergroup->noTransValue)
+			if (!aggstate->is_vector)
 			{
-				AggStatePerTrans pertrans = op->d.agg_init_trans.pertrans;
+				/* If transValue has not yet been initialized, do so now. */
+				if (pergroup->noTransValue)
+				{
+					AggStatePerTrans pertrans = op->d.agg_init_trans.pertrans;
 
-				aggstate->curaggcontext = op->d.agg_init_trans.aggcontext;
-				aggstate->current_set = op->d.agg_init_trans.setno;
+					aggstate->curaggcontext = op->d.agg_init_trans.aggcontext;
+					aggstate->current_set = op->d.agg_init_trans.setno;
 
-				ExecAggInitGroup(aggstate, pertrans, pergroup);
+					ExecAggInitGroup(aggstate, pertrans, pergroup);
+
+					/* copied trans value from input, done this round */
+					EEO_JUMP(op->d.agg_init_trans.jumpnull);
+				}
+			}
+			else
+			{
+				AggStatePerGroup *pergroupVector;
+
+				pergroupVector = (AggStatePerGroup *) pergroup;
+				for (int i = 0; i < BATCHSIZE; ++i)
+				{
+					if (!pergroupVector[i])
+						continue;
+
+					if (pergroupVector[i]->noTransValue)
+					{
+						AggStatePerTrans pertrans = op->d.agg_init_trans.pertrans;
+
+						aggstate->curaggcontext = op->d.agg_init_trans.aggcontext;
+						aggstate->current_set = op->d.agg_init_trans.setno;
+
+						ExecAggInitGroup(aggstate, pertrans, pergroupVector[i]);
+					}
+				}
 
 				/* copied trans value from input, done this round */
 				EEO_JUMP(op->d.agg_init_trans.jumpnull);
 			}
+
 
 			EEO_NEXT();
 		}
@@ -1602,8 +1692,28 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				[op->d.agg_strict_trans_check.setoff]
 				[op->d.agg_strict_trans_check.transno];
 
-			if (unlikely(pergroup->transValueIsNull))
-				EEO_JUMP(op->d.agg_strict_trans_check.jumpnull);
+			if (!aggstate->is_vector)
+			{
+				if (unlikely(pergroup->transValueIsNull))
+					EEO_JUMP(op->d.agg_strict_trans_check.jumpnull);
+			}
+			else
+			{
+				AggStatePerGroup   *pergroupVector;
+				bool				vectorNull = true;
+
+				pergroupVector = (AggStatePerGroup *) pergroup;
+				for (int i = 0; i < BATCHSIZE; ++i)
+				{
+					if (!pergroupVector[i])
+						continue;
+
+					if (!unlikely(pergroup->transValueIsNull))
+						vectorNull = false;
+				}
+				if (vectorNull)
+					EEO_JUMP(op->d.agg_strict_trans_check.jumpnull);
+			}
 
 			EEO_NEXT();
 		}
@@ -1643,14 +1753,45 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			/* invoke transition function in per-tuple context */
 			oldContext = MemoryContextSwitchTo(aggstate->tmpcontext->ecxt_per_tuple_memory);
 
-			fcinfo->args[0].value = pergroup->transValue;
-			fcinfo->args[0].isnull = pergroup->transValueIsNull;
-			fcinfo->isnull = false; /* just in case transfn doesn't set it */
+			if (!aggstate->is_vector)
+			{
+				fcinfo->args[0].value = pergroup->transValue;
+				fcinfo->args[0].isnull = pergroup->transValueIsNull;
+				fcinfo->isnull = false; /* just in case transfn doesn't set it */
 
-			newVal = FunctionCallInvoke(fcinfo);
+				newVal = FunctionCallInvoke(fcinfo);
 
-			pergroup->transValue = newVal;
-			pergroup->transValueIsNull = fcinfo->isnull;
+				pergroup->transValue = newVal;
+				pergroup->transValueIsNull = fcinfo->isnull;
+			}
+			else if (aggstate->aggstrategy == AGG_HASHED)
+			{
+				AggStatePerGroupVector	pergroupVector;
+
+				pergroupVector = (AggStatePerGroupVector) pergroup;
+
+				fcinfo->args[0].value = PointerGetDatum(pergroupVector);
+				fcinfo->args[0].isnull = false;
+				fcinfo->isnull = false;
+
+				FunctionCallInvoke(fcinfo);
+			}
+			else if (aggstate->aggstrategy == AGG_PLAIN ||
+					 aggstate->aggstrategy == AGG_SORTED)
+			{
+				AGGStatePerGroupSingleData 	perGroupSingle;
+
+				perGroupSingle.size = 1;
+				perGroupSingle.perGroup = pergroup;
+
+				fcinfo->args[0].value = PointerGetDatum(&perGroupSingle);
+				fcinfo->args[0].isnull = false;
+
+				FunctionCallInvoke(fcinfo);
+			}
+			else
+				elog(ERROR, "AGG_MIXED is not supported in vectorize engine");
+
 
 			MemoryContextSwitchTo(oldContext);
 

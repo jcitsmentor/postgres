@@ -37,6 +37,9 @@ typedef SOCKET pgsocket;
 #define PGINVALID_SOCKET INVALID_SOCKET
 #endif
 
+#undef bool
+typedef char bool;
+
 /* non-blocking */
 extern bool pg_set_noblock(pgsocket sock);
 extern bool pg_set_block(pgsocket sock);
@@ -260,6 +263,9 @@ extern bool pgwin32_is_junction(const char *path);
 #define symlink(oldpath, newpath)	pgsymlink(oldpath, newpath)
 #define readlink(path, buf, size)	pgreadlink(path, buf, size)
 #endif
+
+#undef bool
+typedef char bool;
 
 extern bool rmtree(const char *path, bool rmtopdir);
 

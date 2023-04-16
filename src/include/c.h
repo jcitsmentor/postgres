@@ -77,7 +77,6 @@
 #include <libintl.h>
 #endif
 
-
 /* ----------------------------------------------------------------
  *				Section 1: compiler characteristics
  *
@@ -1301,5 +1300,9 @@ extern unsigned long long strtoull(const char *str, char **endptr, int base);
 
 /* /port compatibility functions */
 #include "port.h"
+
+
+#undef bool
+typedef char bool;
 
 #endif							/* C_H */
