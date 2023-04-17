@@ -89,6 +89,8 @@ VExecScanQual(ExprState *state, ExprContext *econtext)
 			vslot->skip[row] = true;
 	}
 
+	state->boolvalue = 0;
+
 	/* EEOP_QUAL should never return NULL */
 	Assert(!isnull);
 

@@ -367,7 +367,7 @@ VExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
 	 * Initialize result type and projection.
 	 */
 	ExecInitResultTypeTL(&scanstate->ss.ps);
-	ExecAssignScanProjectionInfo(&scanstate->ss);
+	VExecAssignScanProjectionInfo(&scanstate->ss);
 
 	/*
 	 * initialize child expressions
@@ -377,6 +377,7 @@ VExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
 
 	return scanstate;
 }
+
 
 /* ----------------------------------------------------------------
  *		ExecEndSeqScan

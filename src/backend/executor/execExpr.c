@@ -240,6 +240,7 @@ ExecInitQual(List *qual, PlanState *parent)
 	 */
 	scratch.resvalue = &state->resvalue;
 	scratch.resnull = &state->resnull;
+	scratch.boolvalue = &state->boolvalue;
 
 	foreach(lc, qual)
 	{
@@ -682,6 +683,7 @@ ExecInitExprRec(Expr *node, ExprState *state,
 	Assert(resv != NULL && resnull != NULL);
 	scratch.resvalue = resv;
 	scratch.resnull = resnull;
+	scratch.boolvalue = &state->boolvalue;
 
 	/* cases should be ordered as they are in enum NodeTag */
 	switch (nodeTag(node))
@@ -2974,7 +2976,6 @@ ExecBuildAggTrans(AggState *aggstate, AggStatePerPhase phase,
 
 	scratch.resvalue = &state->resvalue;
 	scratch.resnull = &state->resnull;
-
 	/*
 	 * First figure out which slots, and how many columns from each, we're
 	 * going to need.

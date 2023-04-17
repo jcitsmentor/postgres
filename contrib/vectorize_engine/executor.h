@@ -17,4 +17,5 @@ typedef bool (*VExecScanRecheckMtd) (VectorScanState *node, TupleTableSlot *slot
 TupleTableSlot *
 VExecScan(VectorScanState* node, VExecScanAccessMtd accessMtd,
 			VExecScanRecheckMtd recheckMtd);
+extern void VExecAssignScanProjectionInfo(ScanState *node);
 #endif

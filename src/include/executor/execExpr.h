@@ -264,6 +264,8 @@ typedef struct ExprEvalStep
 	Datum	   *resvalue;
 	bool	   *resnull;
 
+	Datum 	   *boolvalue;
+
 	/*
 	 * Inline data for the operation.  Inline data is faster to access, but
 	 * also bloats the size of all instructions.  The union should be kept to
@@ -350,6 +352,7 @@ typedef struct ExprEvalStep
 		struct
 		{
 			int			jumpdone;	/* jump here on false or null */
+			Datum 		vvalue;
 		}			qualexpr;
 
 		/* for EEOP_JUMP[_CONDITION] */

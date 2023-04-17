@@ -113,6 +113,7 @@ typedef struct ExprState
 	Datum	   *innermost_domainval;
 	bool	   *innermost_domainnull;
 	bool		is_vector;
+	Datum 		boolvalue;
 } ExprState;
 
 

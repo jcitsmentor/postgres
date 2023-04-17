@@ -212,43 +212,7 @@ Vslot_getsomeattrs(TupleTableSlot *slot, int attnum)
 TupleTableSlot *
 VExecClearTuple(TupleTableSlot *slot)	/* slot in which to store tuple */
 {
-	int				i;
-	vtype			*column;
-	VectorTupleSlot *vslot;
-	/*
-	 * sanity checks
-	 */
-	Assert(slot != NULL);
-
-	vslot = (VectorTupleSlot *)slot;
-
-	slot->tts_flags &=~ TTS_FLAG_SHOULDFREE;
-
-	/*
-	 * Mark it empty.
-	 */
-	slot->tts_flags |= TTS_FLAG_EMPTY;
-	slot->tts_nvalid = 0;
-
-	/* vectorize part  */
-	for(i = 0; i < vslot->bufnum; i++)
-	{
-		if(BufferIsValid(vslot->tts_buffers[i]))
-		{
-			ReleaseBuffer(vslot->tts_buffers[i]);
-			vslot->tts_buffers[i] = InvalidBuffer;
-		}
-	}
-	vslot->dim = 0;
-	vslot->bufnum = 0;
-
-	for (i = 0; i < slot->tts_tupleDescriptor->natts; i++)
-	{
-		column = (vtype *)DatumGetPointer(slot->tts_values[i]);
-		column->dim = 0;
-	}
-
-	memset(vslot->skip, true, sizeof(vslot->skip));
+	slot->tts_ops->clear(slot);
 
 	return slot;
 }

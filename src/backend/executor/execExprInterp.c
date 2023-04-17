@@ -889,21 +889,57 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			/* simplified version of BOOL_AND_STEP for use by ExecQual() */
 
 			/* If argument (also result) is false or null ... */
-			if (*op->resnull ||
-				!DatumGetBool(*op->resvalue))
+
+			if (!state->is_vector)
 			{
-				/* ... bail out early, returning FALSE */
-				*op->resnull = false;
-				*op->resvalue = BoolGetDatum(false);
-				EEO_JUMP(op->d.qualexpr.jumpdone);
+				if (*op->resnull ||
+					!DatumGetBool(*op->resvalue))
+				{
+					/* ... bail out early, returning FALSE */
+					*op->resnull = false;
+					*op->resvalue = BoolGetDatum(false);
+					EEO_JUMP(op->d.qualexpr.jumpdone);
+				}
+				/*
+				 * Otherwise, leave the TRUE value in place, in case this is the
+				 * last qual.  Then, TRUE is the correct answer.
+				 */
+
+				EEO_NEXT();
 			}
+			else
+			{
+				vbool	*expr_val_bools;
+				vbool	*catched_val_bools;
+				bool	all_false = true;
 
-			/*
-			 * Otherwise, leave the TRUE value in place, in case this is the
-			 * last qual.  Then, TRUE is the correct answer.
-			 */
+				expr_val_bools = (vbool*) DatumGetPointer(*op->resvalue);
+				catched_val_bools = (vbool*) DatumGetPointer(*op->boolvalue);
 
-			EEO_NEXT();
+				if (!catched_val_bools)
+				{
+					*op->boolvalue = PointerGetDatum(expr_val_bools);
+					EEO_NEXT();
+				}
+
+				for (int i = 0; i < BATCHSIZE; ++i)
+				{
+					catched_val_bools->values[i] = DatumGetBool(catched_val_bools->values[i]) &&
+												   DatumGetBool(expr_val_bools->values[i]);
+					expr_val_bools->values[i] = catched_val_bools->values[i];
+					if (DatumGetBool(catched_val_bools->values[i]))
+						all_false = false;
+				}
+
+				*op->boolvalue = PointerGetDatum(catched_val_bools);
+
+				if (all_false)
+				{
+					EEO_JUMP(op->d.qualexpr.jumpdone);
+				}
+
+				EEO_NEXT();
+			}
 		}
 
 		EEO_CASE(EEOP_JUMP)
@@ -2018,11 +2054,11 @@ CheckVarSlotCompatibility(TupleTableSlot *slot, int attnum, Oid vartype)
 							attnum, format_type_be(slot_tupdesc->tdtypeid))));
 
 		if (vartype != attr->atttypid)
-			ereport(WARNING,
+			ereport(DEBUG1,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("attribute %d of type %s has wrong type",
 							attnum, format_type_be(slot_tupdesc->tdtypeid)),
-					 errdetail("1 Table has type %s, but query expects %s.",
+					 errdetail("Table has type %s, but query expects %s.",
 							   format_type_be(attr->atttypid),
 							   format_type_be(vartype))));
 	}
@@ -3095,7 +3131,7 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("attribute %d has wrong type", fieldnum),
-					 errdetail("2 Table has type %s, but query expects %s.",
+					 errdetail("Table has type %s, but query expects %s.",
 							   format_type_be(attr->atttypid),
 							   format_type_be(op->d.fieldselect.resulttype))));
 
@@ -3141,7 +3177,7 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("attribute %d has wrong type", fieldnum),
-					 errdetail("3 Table has type %s, but query expects %s.",
+					 errdetail("Table has type %s, but query expects %s.",
 							   format_type_be(attr->atttypid),
 							   format_type_be(op->d.fieldselect.resulttype))));
 
