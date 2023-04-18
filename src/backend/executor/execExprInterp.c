@@ -2042,7 +2042,7 @@ CheckVarSlotCompatibility(TupleTableSlot *slot, int attnum, Oid vartype)
 		Form_pg_attribute attr;
 
 		if (attnum > slot_tupdesc->natts)	/* should never happen */
-			elog(ERROR, "attribute number %d exceeds number of columns %d",
+			elog(PANIC, "attribute number %d exceeds number of columns %d",
 				 attnum, slot_tupdesc->natts);
 
 		attr = TupleDescAttr(slot_tupdesc, attnum - 1);
@@ -3114,7 +3114,7 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			elog(ERROR, "unsupported reference to system column %d in FieldSelect",
 				 fieldnum);
 		if (fieldnum > tupDesc->natts)	/* should never happen */
-			elog(ERROR, "attribute number %d exceeds number of columns %d",
+			elog(PANIC, "attribute number %d exceeds number of columns %d",
 				 fieldnum, tupDesc->natts);
 		attr = TupleDescAttr(tupDesc, fieldnum - 1);
 
@@ -3160,7 +3160,7 @@ ExecEvalFieldSelect(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
 			elog(ERROR, "unsupported reference to system column %d in FieldSelect",
 				 fieldnum);
 		if (fieldnum > tupDesc->natts)	/* should never happen */
-			elog(ERROR, "attribute number %d exceeds number of columns %d",
+			elog(PANIC, "attribute number %d exceeds number of columns %d",
 				 fieldnum, tupDesc->natts);
 		attr = TupleDescAttr(tupDesc, fieldnum - 1);
 

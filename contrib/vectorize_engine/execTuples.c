@@ -199,6 +199,42 @@ tts_vector_copyslot(TupleTableSlot *dstslot, TupleTableSlot *srcslot)
 	elog(ERROR, "copy is not supported on vector tuple slot");
 }
 
+static HeapTuple
+tts_vector_copy_heap_tuple(TupleTableSlot *slot)
+{
+	VectorTupleSlot *vslot;
+	Datum 			*values;
+	bool			*isnull;
+	HeapTuple 		htup;
+
+	Assert(!TTS_EMPTY(slot));
+	vslot = (VectorTupleSlot *) slot;
+
+	values = palloc(sizeof(Datum) * slot->tts_tupleDescriptor->natts);
+	isnull = palloc(sizeof(bool) * slot->tts_tupleDescriptor->natts);
+
+	for (int i = 0; i < slot->tts_tupleDescriptor->natts; ++i)
+	{
+		vtype		*column;
+
+		column = (vtype *) DatumGetPointer(slot->tts_values[i]);
+		values[i] = column->values[0];
+		isnull[i] = column->isnull[0];
+	}
+
+	htup = heap_form_tuple(slot->tts_tupleDescriptor, values, isnull);
+	pfree(values);
+	pfree(isnull);
+
+	return htup;
+}
+
+static MinimalTuple
+tts_vector_copy_minimal_tuple(TupleTableSlot *slot)
+{
+	return NULL;
+}
+
 const TupleTableSlotOps TTSOpsVector = {
 	.base_slot_size = sizeof(VectorTupleSlot),
 	.init = tts_vector_init,
@@ -208,4 +244,9 @@ const TupleTableSlotOps TTSOpsVector = {
 	.getsysattr = tts_vector_getsysattr,
 	.materialize = tts_vector_materialize,
 	.copyslot = tts_vector_copyslot,
+
+	.get_heap_tuple = NULL,
+	.get_minimal_tuple = NULL,
+	.copy_heap_tuple = tts_vector_copy_heap_tuple,
+	.copy_minimal_tuple = tts_vector_copy_minimal_tuple
 };

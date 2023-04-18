@@ -158,12 +158,14 @@
 #include "catalog/pg_proc.h"
 #include "catalog/pg_type.h"
 #include "executor/executor.h"
+#include "executor/execExpr.h"
 #include "executor/nodeAgg.h"
 #include "fmgr.h"
 #include "miscadmin.h"
 #include "nodes/nodeFuncs.h"
 #include "nodes/execnodes.h"
 #include "optimizer/clauses.h"
+#include "optimizer/optimizer.h"
 #include "optimizer/tlist.h"
 #include "parser/parse_agg.h"
 #include "parser/parse_coerce.h"
@@ -463,10 +465,6 @@ static void advance_transition_function(AggState *aggstate,
 							AggStatePerTrans pertrans,
 							AggStatePerGroup pergroupstate);
 static void advance_aggregates(AggState *aggstate);
-static void advance_combine_function(AggState *aggstate,
-						 AggStatePerTrans pertrans,
-						 AggStatePerGroup pergroupstate);
-static void combine_aggregates(AggState *aggstate, AggStatePerGroup pergroup);
 static void process_ordered_aggregate_single(AggState *aggstate,
 								 AggStatePerTrans pertrans,
 								 AggStatePerGroup pergroupstate);
@@ -529,10 +527,6 @@ static TupleTableSlot *VExecAgg(VectorAggState *node);
 static void VExecEndAgg(VectorAggState *node);
 
 static void InitAggResultSlot(VectorAggState *vas, EState *estate);
-static void Vadvance_aggregates(AggState *aggstate);
-static void Vadvance_transition_function(AggState *aggstate,
-							AggStatePerTrans pertrans,
-							AggHashEntry *entries);
 
 /* lookup_hash_entry now return a batch of hash entries. */
 static AggStatePerGroup *lookup_hash_entry(AggState *aggstate);
@@ -591,6 +585,7 @@ BeginVectorAgg(CustomScanState *css, EState *estate, int eflags)
 	cscan = (CustomScan *)css->ss.ps.plan;
 	node = (Agg *)linitial(cscan->custom_plans);
 
+	vas->css.ss.ps.plan->targetlist = node->plan.targetlist;
 	vas->aggstate = VExecInitAgg(node, estate, eflags);
 
 	InitAggResultSlot(vas, estate);
@@ -621,7 +616,7 @@ InitAggResultSlot(VectorAggState *vas, EState *estate)
 
 	vslot = (VectorTupleSlot *)vas->resultSlot;
 
-	ExecSetSlotDescriptor(vas->resultSlot, vdesc);
+	// ExecSetSlotDescriptor(vas->resultSlot, vdesc);
 
 	/* initailize tuple batch */
 	for (i = 0; i < vdesc->natts; i++)
@@ -637,78 +632,6 @@ InitAggResultSlot(VectorAggState *vas, EState *estate)
 	}
 }
 
-/*
- * Advance each aggregate transition state for one input tuple.  The input
- * tuple has been stored in tmpcontext->ecxt_outertuple, so that it is
- * accessible to ExecEvalExpr.  pergroup is the array of per-group structs to
- * use (this might be in a hashtable entry).
- *
- * When called, CurrentMemoryContext should be the per-query context.
- */
-static void
-Vadvance_aggregates(AggState *aggstate)
-{
-	bool		dummynull;
-
-	ExecEvalExprSwitchContext(aggstate->phase->evaltrans,
-							  aggstate->tmpcontext,
-							  &dummynull);
-}
-
-/*
- * Given new input value(s), advance the transition function of one aggregate
- * state within one grouping set only (already set in aggstate->current_set)
- *
- * The new values (and null flags) have been preloaded into argument positions
- * 1 and up in pertrans->transfn_fcinfo, so that we needn't copy them again to
- * pass to the transition function.  We also expect that the static fields of
- * the fcinfo are already initialized; that was done by ExecInitAgg().
- *
- * It doesn't matter which memory context this is called in.
- */
-//static void
-//Vadvance_transition_function(AggState *aggstate,
-//							AggStatePerTrans pertrans,
-//							AggHashEntry *entries)
-//{
-//	FunctionCallInfo fcinfo = &pertrans->transfn_fcinfo;
-//	MemoryContext oldContext;
-//
-//	if (pertrans->transfn.fn_strict)
-//	{
-//		/*
-//		 * For a strict transfn, nothing happens when there's a NULL input; we
-//		 * just keep the prior transValue.
-//		 */
-//		int			numTransInputs = pertrans->numTransInputs;
-//		int			i;
-//
-//		for (i = 1; i <= numTransInputs; i++)
-//		{
-//			if (fcinfo->argnull[i])
-//				return;
-//		}
-//	}
-//
-//	/* We run the transition functions in per-input-tuple memory context */
-//	oldContext = MemoryContextSwitchTo(aggstate->tmpcontext->ecxt_per_tuple_memory);
-//
-//	/* set up aggstate->curpertrans for AggGetAggref() */
-//	aggstate->curpertrans = pertrans;
-//
-//	/*
-//	 * OK to call the transition function
-//	 */
-//	fcinfo->args[0].value = PointerGetDatum(entries);
-//	fcinfo->args[0].isnull = false;
-//	fcinfo->isnull = false;		/* just in case transfn doesn't set it */
-//
-//	FunctionCallInvoke(fcinfo);
-//
-//	aggstate->curpertrans = NULL;
-//
-//	MemoryContextSwitchTo(oldContext);
-//}
 /*
  * Interface to get the custom scan plan for vector scan
  */
@@ -1914,7 +1837,7 @@ build_hash_table(AggState *aggstate)
  * SQL99 semantics that allow use of "functionally dependent" columns that
  * haven't been explicitly grouped by.
  */
-static List *
+static void
 find_hash_columns(AggState *aggstate)
 {
 	Bitmapset  *base_colnos;
@@ -2304,7 +2227,7 @@ agg_retrieve_direct(VectorAggState *vas)
 				ResetTupleHashIterator(aggstate->perhash[0].hashtable,
 									   &aggstate->perhash[0].hashiter);
 				select_current_set(aggstate, 0, true);
-				return agg_retrieve_hash_table(aggstate);
+				return agg_retrieve_hash_table(vas);
 			}
 			else
 			{
@@ -2454,7 +2377,7 @@ agg_retrieve_direct(VectorAggState *vas)
 					 * hashtables as well in advance_aggregates.
 					 */
 					if (aggstate->aggstrategy == AGG_MIXED &&
-					aggstate->current_phase == 1)
+						aggstate->current_phase == 1)
 					{
 						lookup_hash_entries(aggstate);
 					}

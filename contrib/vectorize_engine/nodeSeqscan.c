@@ -122,6 +122,7 @@ BeginVectorScan(CustomScanState *css, EState *estate, int eflags)
 	vss = (VectorScanState*)css;
 	vss->scanFinish = false;
 
+	vss->css.ss.ps.plan->targetlist = node->plan.targetlist;
 	vss->seqstate = VExecInitSeqScan(node, estate, eflags);
 
 	vss->css.ss.ps.ps_ResultTupleSlot = vss->seqstate->ss.ps.ps_ResultTupleSlot;
