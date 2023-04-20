@@ -126,6 +126,7 @@ BeginVectorScan(CustomScanState *css, EState *estate, int eflags)
 	vss->seqstate = VExecInitSeqScan(node, estate, eflags);
 
 	vss->css.ss.ps.ps_ResultTupleSlot = vss->seqstate->ss.ps.ps_ResultTupleSlot;
+	vss->css.ss.ps.ps_ResultTupleDesc = vss->seqstate->ss.ps.ps_ResultTupleDesc;
 }
 
 /*

@@ -12,6 +12,7 @@
 #include "fmgr.h"
 #include "optimizer/planner.h"
 #include "executor/nodeCustom.h"
+#include "executor/execExpr.h"
 #include "utils/guc.h"
 
 #include "nodeUnbatch.h"
@@ -46,6 +47,8 @@ vector_post_planner(Query	*parse,
 	else
 		stmt = standard_planner(parse, cursorOptions, boundParams);
 
+	isVector = false;
+
 	if (!enable_vectorize_engine)
 		return stmt;
 
@@ -72,6 +75,8 @@ vector_post_planner(Query	*parse,
 		 * add unbatch node at top to convert batch to row and send to client.
 		 */
 		stmt->planTree = AddUnbatchNodeAtTop(stmt->planTree);
+
+		isVector = true;
 	}
 	PG_CATCH();
 	{

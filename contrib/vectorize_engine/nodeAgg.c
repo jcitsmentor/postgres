@@ -590,6 +590,7 @@ BeginVectorAgg(CustomScanState *css, EState *estate, int eflags)
 
 	InitAggResultSlot(vas, estate);
 	vas->css.ss.ps.ps_ResultTupleSlot = vas->aggstate->ss.ps.ps_ResultTupleSlot;
+	vas->css.ss.ps.ps_ResultTupleDesc = vas->aggstate->ss.ps.ps_ResultTupleDesc;
 }
 
 static TupleTableSlot *
@@ -2359,8 +2360,10 @@ agg_retrieve_direct(VectorAggState *vas)
 				 * reserved for it.  The tuple will be deleted when it is
 				 * cleared from the slot.
 				 */
-				ExecForceStoreHeapTuple(aggstate->grp_firstTuple,
-										firstSlot, true);
+//				ExecForceStoreHeapTuple(aggstate->grp_firstTuple,
+//										firstSlot, true);
+				firstSlot = outerslot;
+
 				aggstate->grp_firstTuple = NULL;	/* don't keep two pointers */
 
 				/* set up for first advance_aggregates call */
@@ -2462,7 +2465,8 @@ agg_retrieve_direct(VectorAggState *vas)
 			column->values[0] = result->tts_values[i];
 		}
 		vslot->skip[0] = false;
-		ExecStoreVirtualTuple((TupleTableSlot *)vslot);
+		vslot->tts.tts_flags &= ~TTS_FLAG_EMPTY;
+		//ExecStoreVirtualTuple((TupleTableSlot *)vslot);
 		return (TupleTableSlot *)vslot;
 	}
 
@@ -2835,7 +2839,7 @@ VExecInitAgg(Agg *node, EState *estate, int eflags)
 	/*
 	 * Initialize result type, slot and projection.
 	 */
-	ExecInitResultTupleSlotTL(&aggstate->ss.ps, &TTSOpsVector);
+	ExecInitResultTupleSlotTL(&aggstate->ss.ps, &TTSOpsVirtual);
 	ExecAssignProjectionInfo(&aggstate->ss.ps, NULL);
 
 	/*

@@ -69,12 +69,9 @@ Datum vint8inc_any(PG_FUNCTION_ARGS)
 Datum
 vint4_sum(PG_FUNCTION_ARGS)
 {
-	char	**entries;
 	vtype	*batch;
 	int		i;
-	int64	result;
-	Datum *transVal;
-	int32	groupOffset = PG_GETARG_INT32(1);
+	int64	result = 0;
 	int64 	groupNum;
 
 #if 0
@@ -95,6 +92,7 @@ vint4_sum(PG_FUNCTION_ARGS)
 		AGGStatePerGroupSingleData *singleData;
 
 		singleData = (AGGStatePerGroupSingleData *) PG_GETARG_POINTER(0);
+
 		/* Not called as an aggregate, so just do it the dumb way */
 		batch = (vtype *) PG_GETARG_POINTER(1);
 
@@ -106,7 +104,7 @@ vint4_sum(PG_FUNCTION_ARGS)
 			singleData->perGroup->transValue += DatumGetInt32(batch->values[i]);
 		}
 
-		PG_RETURN_INT64(result);
+		PG_RETURN_INT64(singleData->perGroup->transValue);
 	}
 	else
 	{

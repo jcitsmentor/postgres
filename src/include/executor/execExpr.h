@@ -711,6 +711,7 @@ typedef struct SubscriptingRefState
 	bool		prevnull;
 } SubscriptingRefState;
 
+extern bool isVector;
 
 /* functions in execExpr.c */
 extern void ExprEvalPushStep(ExprState *es, const ExprEvalStep *s);

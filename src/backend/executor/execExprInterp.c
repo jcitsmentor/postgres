@@ -87,6 +87,8 @@
 #define EEO_USE_COMPUTED_GOTO
 #endif							/* HAVE_COMPUTED_GOTO */
 
+bool isVector = false;
+
 /*
  * Macros for opcode dispatch.
  *
@@ -438,7 +440,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_OUTER_FETCHSOME)
 		{
-			CheckOpSlotCompatibility(op, outerslot);
+			//CheckOpSlotCompatibility(op, outerslot);
 
 			slot_getsomeattrs(outerslot, op->d.fetch.last_var);
 
@@ -579,8 +581,22 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			int			resultnum = op->d.assign_tmp.resultnum;
 
 			Assert(resultnum >= 0 && resultnum < resultslot->tts_tupleDescriptor->natts);
-			resultslot->tts_values[resultnum] = state->resvalue;
-			resultslot->tts_isnull[resultnum] = state->resnull;
+
+//			if (!isVector)
+//			{
+				resultslot->tts_values[resultnum] = state->resvalue;
+				resultslot->tts_isnull[resultnum] = state->resnull;
+//			}
+//			else
+//			{
+//				vtype *column;
+//
+//				column = (vtype *) DatumGetPointer(resultslot->tts_values[resultnum]);
+//				column->values[0] = state->resvalue;
+//				column->isnull[0] = state->resnull;
+//				column->dim = 1;
+//			}
+
 
 			EEO_NEXT();
 		}
@@ -698,7 +714,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 			/* FALL THROUGH */
 
-			if (state->is_vector)
+			if (isVector)
 			{
 				op->d.boolexpr.vvalue = *op->resvalue;
 			}
@@ -706,7 +722,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_BOOL_AND_STEP)
 		{
-			if (!state->is_vector)
+			if (!isVector)
 			{
 				if (*op->resnull)
 				{
@@ -754,7 +770,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 		EEO_CASE(EEOP_BOOL_AND_STEP_LAST)
 		{
-			if (!state->is_vector)
+			if (!isVector)
 			{
 				if (*op->resnull)
 				{
@@ -890,7 +906,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 
 			/* If argument (also result) is false or null ... */
 
-			if (!state->is_vector)
+			if (!isVector)
 			{
 				if (*op->resnull ||
 					!DatumGetBool(*op->resvalue))
@@ -1672,7 +1688,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 					[op->d.agg_init_trans.setoff]
 					[op->d.agg_init_trans.transno];
 
-			if (!aggstate->is_vector)
+			if (!isVector)
 			{
 				/* If transValue has not yet been initialized, do so now. */
 				if (pergroup->noTransValue)
@@ -1728,7 +1744,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				[op->d.agg_strict_trans_check.setoff]
 				[op->d.agg_strict_trans_check.transno];
 
-			if (!aggstate->is_vector)
+			if (!isVector)
 			{
 				if (unlikely(pergroup->transValueIsNull))
 					EEO_JUMP(op->d.agg_strict_trans_check.jumpnull);
@@ -1789,7 +1805,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 			/* invoke transition function in per-tuple context */
 			oldContext = MemoryContextSwitchTo(aggstate->tmpcontext->ecxt_per_tuple_memory);
 
-			if (!aggstate->is_vector)
+			if (!isVector)
 			{
 				fcinfo->args[0].value = pergroup->transValue;
 				fcinfo->args[0].isnull = pergroup->transValueIsNull;
@@ -1811,6 +1827,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				fcinfo->isnull = false;
 
 				FunctionCallInvoke(fcinfo);
+				pergroup->transValueIsNull = fcinfo->isnull;
 			}
 			else if (aggstate->aggstrategy == AGG_PLAIN ||
 					 aggstate->aggstrategy == AGG_SORTED)
@@ -1824,6 +1841,7 @@ ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull)
 				fcinfo->args[0].isnull = false;
 
 				FunctionCallInvoke(fcinfo);
+				pergroup->transValueIsNull = fcinfo->isnull;
 			}
 			else
 				elog(ERROR, "AGG_MIXED is not supported in vectorize engine");

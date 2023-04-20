@@ -138,6 +138,9 @@ tts_vector_clear(TupleTableSlot *slot)
 	 */
 	Assert(slot != NULL);
 
+	if (TTS_EMPTY(slot))
+		return;
+
 	vslot = (VectorTupleSlot *)slot;
 
 	slot->tts_flags &=~ TTS_FLAG_SHOULDFREE;
@@ -172,7 +175,7 @@ tts_vector_clear(TupleTableSlot *slot)
 static void
 tts_vector_getsomeattrs(TupleTableSlot *slot, int natts)
 {
-	elog(ERROR, "getsomeattrs is not required to be called on a vector tuple table slot");
+	elog(PANIC, "getsomeattrs is not required to be called on a vector tuple table slot");
 }
 
 static Datum
@@ -202,13 +205,11 @@ tts_vector_copyslot(TupleTableSlot *dstslot, TupleTableSlot *srcslot)
 static HeapTuple
 tts_vector_copy_heap_tuple(TupleTableSlot *slot)
 {
-	VectorTupleSlot *vslot;
 	Datum 			*values;
 	bool			*isnull;
 	HeapTuple 		htup;
 
 	Assert(!TTS_EMPTY(slot));
-	vslot = (VectorTupleSlot *) slot;
 
 	values = palloc(sizeof(Datum) * slot->tts_tupleDescriptor->natts);
 	isnull = palloc(sizeof(bool) * slot->tts_tupleDescriptor->natts);

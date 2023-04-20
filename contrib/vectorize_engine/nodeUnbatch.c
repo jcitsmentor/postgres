@@ -94,6 +94,7 @@ BeginUnbatch(CustomScanState *node, EState *estate, int eflags)
 						  outerPlanState(vcs)->ps_ResultTupleSlot->tts_tupleDescriptor,
 						  &TTSOpsVector);
 
+
 }
 
 static TupleTableSlot*
@@ -168,7 +169,7 @@ ReadNextVectorSlot(UnbatchState *ubs)
 		return false;
 
 	/* Make sure the tuple is fully deconstructed */
-	slot_getallattrs(slot);
+//	slot_getallattrs(slot);
 
 	ubs->ps_ResultVTupleSlot = slot;
 	ubs->iter = 0;
