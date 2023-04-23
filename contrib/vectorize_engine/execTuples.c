@@ -175,7 +175,7 @@ tts_vector_clear(TupleTableSlot *slot)
 static void
 tts_vector_getsomeattrs(TupleTableSlot *slot, int natts)
 {
-	elog(PANIC, "getsomeattrs is not required to be called on a vector tuple table slot");
+	elog(ERROR, "getsomeattrs is not required to be called on a vector tuple table slot");
 }
 
 static Datum

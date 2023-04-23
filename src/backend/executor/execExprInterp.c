@@ -140,8 +140,6 @@ static ExprEvalOpLookup reverse_dispatch_table[EEOP_LAST];
 		EEO_DISPATCH(); \
 	} while (0)
 
-#define BATCHSIZE 1024
-
 static Datum ExecInterpExpr(ExprState *state, ExprContext *econtext, bool *isnull);
 static void ExecInitInterpreter(void);
 

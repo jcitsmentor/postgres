@@ -71,7 +71,6 @@ vint4_sum(PG_FUNCTION_ARGS)
 {
 	vtype	*batch;
 	int		i;
-	int64	result = 0;
 	int64 	groupNum;
 
 #if 0
